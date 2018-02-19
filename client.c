@@ -13,7 +13,6 @@
 //Initialise stuff for Lamport's Clock (Global)
 int d = 1;
 int clockME = 0; //localClock
-int reqQ[5][4];
 int localEvent() {
   clockME += d;
   return clockME;
@@ -21,7 +20,7 @@ int localEvent() {
 
 typedef struct {
     //int clientID; // or char strVal[20];
-    int timeStamp;
+    int ts;
 } tuple;
 tuple requestQueue0[5], requestQueue1[5], requestQueue2[5], requestQueue3[5];
 
@@ -34,7 +33,9 @@ int globalEvent(long ts) {
 }
 
 void *mutex(void *vargp) {
-
+  while(1) {
+    //Write code to enter CS here, and send ACK/RELEASE back.
+  }
   //Does it matter what kind of request message other client sends? Most likely not.
 
   return NULL;
@@ -42,12 +43,11 @@ void *mutex(void *vargp) {
 
 int main() {
   //Idea: create socket in main program. Implement logic in thread?
-  //pthread_t tid;
-  //pthread_create(&tid, NULL, mutex, NULL);
-  //pthread_join(tid, NULL);
+  pthread_t tid;
+  pthread_create(&tid, NULL, mutex, NULL);
   int lePort = 6000;
   //int reqQ1[5], reqQ2[5], reqQ3[5], reqQ4[5], reqQ5[5];
-  int socket_desc, client_sock, c, read_size, counter, localTS;
+  int socket_desc, client_sock, c, read_size, counter, localTS, eqClientID, lowestTS, repeat;
   struct sockaddr_in server, client;
   char client_message[2000];
   char *token, *data, *req[10];
@@ -78,6 +78,7 @@ int main() {
   }
 
   while((read_size = recv(client_sock, client_message, 2000 , 0)) > 0) {
+    lowestTS=0;
     counter=0;
     //Cast void* to char*
     data = (char *) client_message;
@@ -93,11 +94,29 @@ int main() {
     printf("%ld", requestTS);
     switch(strtol(req[1], NULL, 10)) {
       case 0:
+        repeat=0;
         //Update local time. Add request to queue
         localTS = globalEvent(requestTS);
         //requestQueue0[0].clientI = req[3];
         int clientID = strtol(req[3], NULL, 10);
-        requestQueue0[clientID].timeStamp = localTS;
+        requestQueue0[clientID].ts = requestTS;
+        int i=0;
+        while(repeat<5) { //Do this for all clients to exhaust the queue
+          for(i=0; i<4; i++) {
+            //search for client with lowest TS
+            if(requestQueue0[i].ts==0) {}
+            else if(requestQueue0[i].ts>requestQueue0[i+1].ts) {
+              lowestTS=requestQueue0[i+1].ts;
+              eqClientID=i+1;
+            }
+          }
+          if(lowestTS>0) {
+            //Send aOK to the clientID. Wait for CS to end. Call a function here.
+          }
+          //Set TS of that client for this file to 0
+          requestQueue0[eqClientID].ts=0;
+          repeat++;
+        }
         break;
       case 1:
         //Update local time. Add request to queue
@@ -110,5 +129,6 @@ int main() {
         break;
     }
   }
+  pthread_join(tid, NULL);
   exit(0);
 }
